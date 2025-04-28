@@ -1,537 +1,160 @@
 <?php
 
-namespace FFraenz\PrivateComposerInstaller\Test;
+declare(strict_types=1);
+
+namespace rcknr\ComposerAuthDotenv\Test;
 
 use Composer\Composer;
 use Composer\Config;
-use Composer\DependencyResolver\Operation\InstallOperation;
-use Composer\EventDispatcher\EventSubscriberInterface;
-use Composer\Installer\PackageEvent;
-use Composer\Installer\PackageEvents;
 use Composer\IO\IOInterface;
-use Composer\Package\PackageInterface;
-use Composer\Package\RootPackage;
-use Composer\Plugin\PluginEvents;
-use Composer\Plugin\PluginInterface;
-use Composer\Plugin\PreFileDownloadEvent;
-use Composer\Util\RemoteFilesystem;
-use FFraenz\PrivateComposerInstaller\Environment\LoaderInterface;
-use FFraenz\PrivateComposerInstaller\Exception\MissingEnvException;
-use FFraenz\PrivateComposerInstaller\Plugin;
+use Composer\Json\JsonValidationException;
+use Composer\Package\RootPackageInterface;
 use PHPUnit\Framework\TestCase;
+use rcknr\ComposerAuthDotenv\Plugin;
 
 use function file_exists;
 use function file_put_contents;
 use function getcwd;
 use function unlink;
-use function version_compare;
 
 use const DIRECTORY_SEPARATOR;
 use const PHP_EOL;
 
 class PluginTest extends TestCase
 {
-    protected function tearDown(): void
-    {
-        // Unset environment variables
-        unset($_SERVER['KEY_FOO']);
-        unset($_SERVER['KEY_BAR']);
+    private Plugin $plugin;
+    private Composer $composerMock;
+    private IOInterface $ioMock;
 
-        // Remove dot env file
-        $dotenv = getcwd() . DIRECTORY_SEPARATOR . '.env';
-        if (file_exists($dotenv)) {
-            unlink($dotenv);
+    protected function setUp(): void
+    {
+        $this->plugin = new Plugin();
+
+        $this->composerMock = $this->createMock(Composer::class);
+        $this->ioMock       = $this->createMock(IOInterface::class);
+    }
+
+    public function tearDown(): void
+    {
+        unset($_SERVER['COMPOSER_AUTH']);
+
+        $dotenvPath = getcwd() . DIRECTORY_SEPARATOR . '.env';
+        if (file_exists($dotenvPath)) {
+            unlink($dotenvPath);
         }
     }
 
-    public function testImplementsPluginInterface()
+    public function testGetComposerAndIO(): void
     {
-        $this->assertInstanceOf(PluginInterface::class, new Plugin());
+        $this->plugin->activate($this->composerMock, $this->ioMock);
+
+        $this->assertSame($this->composerMock, $this->plugin->getComposer());
+        $this->assertSame($this->ioMock, $this->plugin->getIO());
     }
 
-    public function testImplementsEventSubscriberInterface()
+    public function testGetConfigMergesWithExtra(): void
     {
-        $this->assertInstanceOf(EventSubscriberInterface::class, new Plugin());
+        $rootPackage = $this->createMock(RootPackageInterface::class);
+        $rootPackage->method('getExtra')
+            ->willReturn([
+                'composer-auth-dotenv' => [
+                    'dotenv-path' => '/custom/path',
+                    'dotenv-name' => '.custom.env',
+                ],
+            ]);
+
+        $this->composerMock->method('getPackage')->willReturn($rootPackage);
+        $this->plugin->activate($this->composerMock, $this->ioMock);
+
+        $this->assertSame('/custom/path', $this->plugin->getConfig('dotenv-path'));
+        $this->assertSame('.custom.env', $this->plugin->getConfig('dotenv-name'));
     }
 
-    public function testActivateAndDeactivateSetsAndClearsComposerAndIO()
+    public function testValidateAuthReturnsValidArray(): void
     {
-        $composer = $this->createComposerMock();
-        $io       = $this->createMock(IOInterface::class);
-        $plugin   = new Plugin();
-        $plugin->activate($composer, $io);
-        $this->assertEquals($composer, $plugin->getComposer());
-        $this->assertEquals($io, $plugin->getIO());
-        $plugin->deactivate($composer, $io);
-        $this->assertNull($plugin->getComposer());
-        $this->assertNull($plugin->getIO());
-        $plugin->uninstall($composer, $io);
+        $json = '{"http-basic":{"example.com":{"username":"user","password":"pass"}}}';
+
+        // We mock static method validateJsonSchema by overriding it via reflection or separate class,
+        // but for now let's just test the decoding part
+        $result = $this->plugin->validateAuth($json);
+
+        $this->assertIsArray($result);
+        $this->assertEquals('user', $result['http-basic']['example.com']['username']);
     }
 
-    public function testDeactivateClearsComposerAndIO()
+    public function testValidateAuthThrowsException(): void
     {
-        $composer = $this->createComposerMock();
-        $io       = $this->createMock(IOInterface::class);
-        $plugin   = new Plugin();
-        $plugin->activate($composer, $io);
-        $this->assertEquals($composer, $plugin->getComposer());
-        $this->assertEquals($io, $plugin->getIO());
+        $json = '{TEST}';
+
+        $this->expectException(JsonValidationException::class);
+
+        $this->plugin->validateAuth($json);
     }
 
-    public function testLazyEnvironmentLoaderInstantiation()
+    public function testReloadAuthMergesAndLoads(): void
     {
-        $composer = $this->createComposerMock();
-        $io       = $this->createMock(IOInterface::class);
-        $plugin   = new Plugin();
-        $plugin->activate($composer, $io);
-        $this->assertInstanceOf(LoaderInterface::class, $plugin->getEnvironmentLoader());
+        $authData = ['http-basic' => ['example.com' => ['username' => 'u', 'password' => 'p']]];
+
+        $configMock = $this->createMock(Config::class);
+        $configMock->expects($this->once())
+            ->method('merge')
+            ->with(['config' => $authData], 'COMPOSER_AUTH');
+
+        $this->composerMock->method('getConfig')->willReturn($configMock);
+        $this->ioMock->expects($this->once())->method('loadConfiguration')->with($configMock);
+
+        $this->plugin->activate($this->composerMock, $this->ioMock);
+        $this->plugin->loadAuth($authData);
     }
 
-    public function testSetEnvironmentLoader()
+    public function testDeactivateResetsComposerAndIO(): void
     {
-        $composer = $this->createComposerMock();
-        $io       = $this->createMock(IOInterface::class);
-        $loader   = $this->createMock(LoaderInterface::class);
-        $plugin   = new Plugin();
-        $plugin->activate($composer, $io);
-        $plugin->setEnvironmentLoader($loader);
-        $this->assertEquals($loader, $plugin->getEnvironmentLoader());
+        $this->plugin->activate($this->composerMock, $this->ioMock);
+        $this->plugin->deactivate($this->composerMock, $this->ioMock);
+
+        $this->assertNull($this->plugin->getComposer());
+        $this->assertNull($this->plugin->getIO());
     }
 
-    public function testSubscribesToEvents()
+    public function testDotenvFile()
     {
-        $subscribedEvents = Plugin::getSubscribedEvents();
-        $this->assertEquals(
-            $subscribedEvents[PluginEvents::PRE_FILE_DOWNLOAD],
-            ['handlePreDownloadEvent', -1]
-        );
-        if (self::isComposer1()) {
-            $this->assertEquals(
-                $subscribedEvents[PackageEvents::PRE_PACKAGE_INSTALL],
-                'handlePreInstallUpdateEvent'
-            );
-            $this->assertEquals(
-                $subscribedEvents[PackageEvents::PRE_PACKAGE_UPDATE],
-                'handlePreInstallUpdateEvent'
-            );
-        }
-    }
+        $authData = '{"test":true}';
 
-    public function testIgnoreVersionLockWithoutDistUrl()
-    {
-        if (! self::isComposer1()) {
-            $this->markTestSkipped();
-        }
-        $_SERVER['KEY_FOO'] = 'TEST';
-        $this->expectLockedDistUrl(
-            null,
-            '1.2.3',
-            null
-        );
-    }
-
-    public function testIgnoreVersionLockWithoutPlaceholders()
-    {
-        if (! self::isComposer1()) {
-            $this->markTestSkipped();
-        }
-        $_SERVER['KEY_FOO'] = 'TEST';
-        $this->expectLockedDistUrl(
-            'https://example.com/download',
-            '1.2.3',
-            'https://example.com/download'
-        );
-    }
-
-    public function testSkipVersionLockIfAlreadyPresent()
-    {
-        if (! self::isComposer1()) {
-            $this->markTestSkipped();
-        }
-        $_SERVER['KEY_FOO'] = 'TEST';
-        $this->expectLockedDistUrl(
-            'https://example.com/r/1.2.3/d?key={%KEY_FOO}',
-            '1.2.3',
-            'https://example.com/r/1.2.3/d?key={%KEY_FOO}'
-        );
-    }
-
-    public function testVersionLockWithoutVersionPlaceholder()
-    {
-        if (! self::isComposer1()) {
-            $this->markTestSkipped();
-        }
-        $_SERVER['KEY_FOO'] = 'TEST';
-        $this->expectLockedDistUrl(
-            'https://example.com/d?key={%KEY_FOO}',
-            '1.2.3',
-            'https://example.com/d?key={%KEY_FOO}#v1.2.3'
-        );
-    }
-
-    public function testVersionLockWithVersionPlaceholder()
-    {
-        if (! self::isComposer1()) {
-            $this->markTestSkipped();
-        }
-        $_SERVER['KEY_FOO'] = 'TEST';
-        $this->expectLockedDistUrl(
-            'https://example.com/r/{%VerSion}/d?key={%KEY_FOO}',
-            '1.2.3',
-            'https://example.com/r/1.2.3/d?key={%KEY_FOO}'
-        );
-    }
-
-    public function testThrowsExceptionWhenEnvVariableIsMissing()
-    {
-        $this->expectException(MissingEnvException::class);
-        $this->expectExceptionMessage(
-            'Can\'t resolve placeholder {%KEY_FOO}. '
-            . 'Environment variable \'KEY_FOO\' is not set.'
-        );
-        $this->expectProcessedUrl(
-            'https://example.com/r/1.2.3/d?key={%KEY_FOO}',
-            '1.2.3',
-            'https://example.com/r/1.2.3/d?key={%KEY_FOO}'
-        );
-    }
-
-    public function testIgnoresProcessedUrlWithoutPlaceholders()
-    {
-        $this->expectProcessedUrl(
-            'https://example.com/r/1.2.3/d',
-            '1.2.3',
-            'https://example.com/r/1.2.3/d'
-        );
-    }
-
-    public function testFulfillProcessedUrlWithPlaceholderOnly()
-    {
-        if (self::isComposer1()) {
-            $this->markTestSkipped();
-        }
-        $_SERVER['SECRET_URL'] = 'https://example.com/r/';
-        $this->expectProcessedUrl(
-            '{%SECRET_URL}',
-            '1.2.3',
-            'https://example.com/r/#v1.2.3'
-        );
-    }
-
-    public function testFulfillVersionPlaceholderOnly()
-    {
-        if (self::isComposer1()) {
-            $this->markTestSkipped();
-        }
-        $this->expectProcessedUrl(
-            'https://example.com/r/{%VERSION}/d',
-            '1.2.3',
-            'https://example.com/r/1.2.3/d'
-        );
-    }
-
-    public function testFulfillSinglePlaceholderFromEnv()
-    {
-        $_SERVER['KEY_FOO'] = 'TEST';
-        $this->expectProcessedUrl(
-            'https://example.com/r/1.2.3/d?key={%KEY_FOO}',
-            '1.2.3',
-            'https://example.com/r/1.2.3/d?key=TEST'
-        );
-    }
-
-    public function testFulfillSinglePlaceholderMultipleTimes()
-    {
-        $_SERVER['KEY_FOO'] = 'TEST';
-        $this->expectProcessedUrl(
-            'https://example.com/r/1.2.3/d?key={%KEY_FOO}&confirm={%KEY_FOO}',
-            '1.2.3',
-            'https://example.com/r/1.2.3/d?key=TEST&confirm=TEST'
-        );
-    }
-
-    public function testFulfillMultiplePlaceholdersFromEnv()
-    {
-        $_SERVER['KEY_FOO'] = 'Hello';
-        $_SERVER['KEY_BAR'] = 'World';
-        $this->expectProcessedUrl(
-            'https://example.com/r/1.2.3/d?key={%KEY_FOO}&secret={%KEY_BAR}',
-            '1.2.3',
-            'https://example.com/r/1.2.3/d?key=Hello&secret=World'
-        );
-    }
-
-    public function testFulfillVersionAndMultiplePlaceholdersFromEnv()
-    {
-        if (self::isComposer1()) {
-            $this->markTestSkipped();
-        }
-        $_SERVER['KEY_FOO'] = 'Hello';
-        $_SERVER['KEY_BAR'] = 'World';
-        $this->expectProcessedUrl(
-            'https://example.com/r/{%VERSION}/d?key={%KEY_FOO}&secret={%KEY_BAR}',
-            '1.2.3',
-            'https://example.com/r/1.2.3/d?key=Hello&secret=World'
-        );
-    }
-
-    public function testFulfillMultiplePlaceholdersFromDotenvFile()
-    {
         file_put_contents(
             getcwd() . DIRECTORY_SEPARATOR . '.env',
-            'KEY_FOO=Hello' . PHP_EOL . 'KEY_BAR=World' . PHP_EOL
+            "COMPOSER_AUTH={$authData}" . PHP_EOL
         );
-        $this->expectProcessedUrl(
-            'https://example.com/r/1.2.3/d?key={%KEY_FOO}&secret={%KEY_BAR}',
-            '1.2.3',
-            'https://example.com/r/1.2.3/d?key=Hello&secret=World'
-        );
+
+        $this->plugin->activate($this->composerMock, $this->ioMock);
+        $value = $this->plugin->getRepository()->get('COMPOSER_AUTH');
+        $this->assertEquals($authData, $value);
     }
 
     public function testPrefersVariableFromEnv()
     {
-        $_SERVER['KEY_BAR'] = 'YAY';
+        $_SERVER['COMPOSER_AUTH'] = '{"test":false}';
+        $authData                 = '{"test":true}';
+
         file_put_contents(
             getcwd() . DIRECTORY_SEPARATOR . '.env',
-            'KEY_FOO=YAY' . PHP_EOL . 'KEY_BAR=NAY' . PHP_EOL
+            "COMPOSER_AUTH={$authData}" . PHP_EOL
         );
-        $this->expectProcessedUrl(
-            'https://example.com/r/1.2.3/d?foo={%KEY_FOO}&bar={%KEY_BAR}',
-            '1.2.3',
-            'https://example.com/r/1.2.3/d?foo=YAY&bar=YAY'
-        );
+
+        $this->plugin->activate($this->composerMock, $this->ioMock);
+        $value = $this->plugin->getRepository()->get('COMPOSER_AUTH');
+        $this->assertEquals($_SERVER['COMPOSER_AUTH'], $value);
     }
 
     public function testSideEffectFreeDotenvLoading()
     {
+        $authData = '{"test":true}';
+
         file_put_contents(
             getcwd() . DIRECTORY_SEPARATOR . '.env',
-            'KEY_FOO=YAY' . PHP_EOL
+            "COMPOSER_AUTH={$authData}" . PHP_EOL
         );
-        $this->expectProcessedUrl(
-            'https://example.com/r/1.2.3/d?foo={%KEY_FOO}',
-            '1.2.3',
-            'https://example.com/r/1.2.3/d?foo=YAY'
-        );
-        $this->assertFalse(isset($_SERVER['KEY_FOO']));
-    }
 
-    /**
-     * Expect the plugin to alter the given processed URL in a certain way.
-     */
-    protected function expectProcessedUrl(
-        string $processedUrl,
-        string $version,
-        string $expectedUrl
-    ): void {
-        $changeExpected = $processedUrl !== $expectedUrl;
-
-        $event = $this
-            ->getMockBuilder(PreFileDownloadEvent::class)
-            ->disableOriginalConstructor()
-            ->setMethods(self::isComposer1() ? [
-                'getProcessedUrl',
-                'getRemoteFilesystem',
-                'getType',
-                'setRemoteFilesystem',
-            ] : [
-                'getContext',
-                'getProcessedUrl',
-                'getType',
-                'setProcessedUrl',
-            ])
-            ->getMock();
-
-        $event
-            ->method('getProcessedUrl')
-            ->willReturn($processedUrl);
-
-        $event
-            ->method('getType')
-            ->willReturn('package');
-
-        if (self::isComposer1()) {
-            $options     = ['options' => 'array'];
-            $tlsDisabled = true;
-            $rfs         = $this
-                ->getMockBuilder(RemoteFilesystem::class)
-                ->disableOriginalConstructor()
-                ->setMethods(['getOptions', 'isTlsDisabled'])
-                ->getMock();
-
-            $rfs
-                ->method('getOptions')
-                ->willReturn($options);
-
-            $rfs
-                ->method('isTlsDisabled')
-                ->willReturn($tlsDisabled);
-
-            $event
-                ->method('getRemoteFilesystem')
-                ->willReturn($rfs);
-
-            $event
-                ->expects($changeExpected ? $this->once() : $this->never())
-                ->method('setRemoteFilesystem')
-                ->with($this->callback(
-                    function ($rfs) use ($options, $tlsDisabled, $expectedUrl) {
-                        $this->assertEquals($options, $rfs->getOptions());
-                        $this->assertEquals($tlsDisabled, $rfs->isTlsDisabled());
-                        $this->assertEquals(
-                            $expectedUrl,
-                            $rfs->getPrivateFileUrl()
-                        );
-                        return true;
-                    }
-                ));
-        } else {
-            $event
-                ->expects($changeExpected ? $this->once() : $this->never())
-                ->method('setProcessedUrl')
-                ->with($this->equalTo($expectedUrl));
-
-            // Mock a package context
-            $package = $this
-                ->getMockBuilder(PackageInterface::class)
-                ->setMethods(['getPrettyVersion'])
-                ->getMockForAbstractClass();
-
-            $package
-                ->method('getPrettyVersion')
-                ->willReturn($version);
-
-            $event
-                ->method('getContext')
-                ->willReturn($package);
-        }
-
-        $composer = $this->createComposerMock();
-        $io       = $this->createMock(IOInterface::class);
-        $plugin   = new Plugin();
-        $plugin->activate($composer, $io);
-        $plugin->handlePreDownloadEvent($event);
-    }
-
-    /**
-     * Expect the plugin to alter the given dist URL in a certain way.
-     */
-    protected function expectLockedDistUrl(
-        ?string $distUrl,
-        string $version,
-        ?string $expectedDistUrl
-    ): void {
-        $changeExpected = $distUrl !== $expectedDistUrl;
-
-        // Mock a package
-        $package = $this
-            ->getMockBuilder(PackageInterface::class)
-            ->setMethods(['getDistUrl', 'getPrettyVersion', 'setDistUrl'])
-            ->getMockForAbstractClass();
-
-        $package
-            ->method('getPrettyVersion')
-            ->willReturn($version);
-
-        $package
-            ->method('getDistUrl')
-            ->willReturn($distUrl);
-
-        if ($changeExpected) {
-            $package
-                ->expects($this->exactly(2))
-                ->method('setDistUrl')
-                ->with($expectedDistUrl);
-        } else {
-            $package
-                ->expects($this->never())
-                ->method('setDistUrl');
-        }
-
-        // Activate plugin
-        $composer = $this->createComposerMock();
-        $io       = $this->createMock(IOInterface::class);
-        $plugin   = new Plugin();
-        $plugin->activate($composer, $io);
-
-        // Test package install event
-        $event = $this->createInstallEventMock($package, 'install');
-        $plugin->handlePreInstallUpdateEvent($event);
-
-        // Test package update event
-        $event = $this->createInstallEventMock($package, 'update');
-        $plugin->handlePreInstallUpdateEvent($event);
-    }
-
-    protected function createComposerMock(): Composer
-    {
-        $rootPackage = $this
-            ->getMockBuilder(RootPackage::class)
-            ->disableOriginalConstructor()
-            ->setMethods(['getExtra'])
-            ->getMock();
-
-        $rootPackage
-            ->method('getExtra')
-            ->willReturn([]);
-
-        $composer = $this
-            ->getMockBuilder(Composer::class)
-            ->setMethods(['getConfig', 'getPackage'])
-            ->getMock();
-
-        $composer
-            ->method('getPackage')
-            ->willReturn($rootPackage);
-
-        $config = $this->createMock(Config::class);
-
-        $composer
-            ->method('getConfig')
-            ->willReturn($config);
-
-        return $composer;
-    }
-
-    protected function createInstallEventMock(
-        PackageInterface $package,
-        string $jobType
-    ): PackageEvent {
-        // Mock an operation
-        $operation = $this
-            ->getMockBuilder(InstallOperation::class)
-            ->disableOriginalConstructor()
-            ->setMethods([
-                'getJobType',
-                $jobType === 'update' ? 'getTargetPackage' : 'getPackage',
-            ])
-            ->getMock();
-
-        $operation
-            ->method('getJobType')
-            ->willReturn($jobType);
-
-        $operation
-            ->expects($this->once())
-            ->method($jobType === 'update' ? 'getTargetPackage' : 'getPackage')
-            ->willReturn($package);
-
-        // Mock a package event
-        $packageEvent = $this
-            ->getMockBuilder(PackageEvent::class)
-            ->disableOriginalConstructor()
-            ->setMethods(['getOperation'])
-            ->getMock();
-
-        $packageEvent
-            ->method('getOperation')
-            ->willReturn($operation);
-
-        return $packageEvent;
-    }
-
-    protected static function isComposer1(): bool
-    {
-        return version_compare(PluginInterface::PLUGIN_API_VERSION, '2.0', '<');
+        $this->plugin->activate($this->composerMock, $this->ioMock);
+        $this->assertArrayNotHasKey('COMPOSER_AUTH', $_SERVER);
     }
 }
