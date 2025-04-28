@@ -1,0 +1,26 @@
+{
+  "name": "test/project",
+  "type": "project",
+  "require": {
+    "rcknr/composer-auth-dotenv": "*",
+    "directorytree/dummy": "^1.0"
+  },
+  "repositories": [
+    {
+      "type": "composer",
+      "url": "{TEST_URL}"
+    },
+    {
+      "type": "path",
+      "url": "/Users/skauk/Developer/private-composer-installer"
+    }
+  ],
+  "config": {
+    "secure-http": false,
+    "allow-plugins": {
+      "rcknr/composer-auth-dotenv": true
+    }
+  },
+  "minimum-stability": "dev",
+  "prefer-stable": true
+}

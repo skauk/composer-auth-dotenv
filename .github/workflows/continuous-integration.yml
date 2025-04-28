@@ -10,23 +10,12 @@ jobs:
     strategy:
       matrix:
         php-version:
-          - "7.1"
-          - "7.2"
-          - "7.3"
-          - "7.4"
           - "8.0"
+          - "8.1"
+          - "8.2"
+          - "8.3"
+          - "8.4"
         composer-version: ["v2"]
-        phpdotenv-version: ["^4.1", "^5.2"]
-        include:
-          - php-version: "7.1"
-            composer-version: "v1"
-            phpdotenv-version: "^4.1"
-          - php-version: "7.1"
-            composer-version: "v1"
-            phpdotenv-version: "^5.2"
-          - php-version: "7.4"
-            composer-version: "v1"
-            phpdotenv-version: "^5.2"
 
     steps:
       - name: "Checkout"
@@ -39,14 +28,6 @@ jobs:
           tools: "composer:${{ matrix.composer-version }}"
           coverage: "xdebug"
 
-      - name: "Choose Composer 1 version"
-        uses: nick-invision/retry@v1
-        with:
-          timeout_minutes: 5
-          max_attempts: 5
-          command: composer require "composer/composer:^1.0" --dev --no-update --no-interaction
-        if: "matrix.composer-version == 'v1'"
-
       - name: "Choose PHPUnit version"
         run: |
           if [ "${{ matrix.php-version }}" = "7.1" ]; then
@@ -56,21 +37,6 @@ jobs:
           else
             echo "SYMFONY_PHPUNIT_VERSION=8.5" >> $GITHUB_ENV;
           fi
-
-      - name: "Choose PHP Dotenv version"
-        uses: nick-invision/retry@v1
-        with:
-          timeout_minutes: 5
-          max_attempts: 5
-          command: composer require "vlucas/phpdotenv:${{ matrix.phpdotenv-version }}" --no-update --no-interaction
-
-      - name: Install PHP 7 dependencies
-        uses: nick-invision/retry@v1
-        with:
-          timeout_minutes: 5
-          max_attempts: 5
-          command: composer update --prefer-dist --no-interaction --no-progress
-        if: "matrix.php-version < 8"
 
       - name: Install PHP 8 dependencies
         uses: nick-invision/retry@v1

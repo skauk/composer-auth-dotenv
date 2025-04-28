@@ -1,33 +1,33 @@
 {
-  "name": "ffraenz/private-composer-installer",
+  "name": "rcknr/composer-auth-dotenv",
   "description": "A composer install helper for private packages",
   "type": "composer-plugin",
   "license": "MIT",
   "authors": [
     {
-      "name": "Fränz Friederes",
-      "email": "fraenz@frieder.es",
-      "homepage": "https://fraenz.frieder.es"
+      "name": "Sergii Kauk",
+      "email": "sergii@kauk.at",
+      "homepage": "https://kauk.at"
     }
   ],
   "keywords": [
     "composer",
     "plugin",
     "env",
-    "private",
-    "wordpress",
-    "wp"
+    "auth",
+    "dotenv"
   ],
   "require": {
-    "php": "^7.1 || ^8.0",
-    "composer-plugin-api": "^1.0 || ^2.0",
-    "vlucas/phpdotenv": "^4.1 || ^5.2"
+    "php": "^8.0",
+    "composer-plugin-api": "^2.0",
+    "vlucas/phpdotenv": "^5.2"
   },
   "require-dev": {
-    "composer/composer": "^1.0 || ^2.0",
+    "composer/composer": "^2.0",
     "laminas/laminas-coding-standard": "^2.0",
     "symfony/phpunit-bridge": "^5.1",
-    "symfony/process": "^4.4 || ^5.1"
+    "symfony/process": "^5.1",
+    "donatj/mock-webserver": "^2.7"
   },
   "scripts": {
     "test": [
@@ -43,11 +43,16 @@
   },
   "autoload": {
     "psr-4": {
-      "FFraenz\\PrivateComposerInstaller\\": "src"
+      "rcknr\\ComposerAuthDotenv\\": "src"
     }
   },
   "extra": {
-    "class": "FFraenz\\PrivateComposerInstaller\\Plugin",
+    "class": "rcknr\\ComposerAuthDotenv\\Plugin",
     "plugin-modifies-downloads": true
+  },
+  "config": {
+    "allow-plugins": {
+      "dealerdirect/phpcodesniffer-composer-installer": true
+    }
   }
 }
