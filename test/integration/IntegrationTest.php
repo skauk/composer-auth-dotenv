@@ -12,10 +12,11 @@ use Symfony\Component\Process\Process;
 use function base64_encode;
 use function file_get_contents;
 use function file_put_contents;
-use function join;
+use function implode;
 use function json_encode;
 use function mkdir;
 use function str_replace;
+use function symlink;
 use function sys_get_temp_dir;
 
 use const PHP_EOL;
@@ -71,6 +72,7 @@ class IntegrationTest extends TestCase
             $this->pwd . '/composer.json',
             str_replace('{TEST_URL}', "http://{$repositoryHost}", $composerJson)
         );
+        symlink(__DIR__ . '/../../', $this->pwd . '/repository');
 
         $install = new Process(
             [
@@ -99,7 +101,7 @@ class IntegrationTest extends TestCase
 
         $this->assertArrayHasKey('Authorization', $this->server->getLastRequest()?->getHeaders());
         $this->assertSame(
-            'Basic ' . base64_encode(join(':', $credentials)),
+            'Basic ' . base64_encode(implode(':', $credentials)),
             $this->server->getLastRequest()->getHeaders()['Authorization']
         );
     }
