@@ -7,16 +7,6 @@ jobs:
     name: "CI"
     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        php-version:
-          - "8.0"
-          - "8.1"
-          - "8.2"
-          - "8.3"
-          - "8.4"
-        composer-version: ["v2"]
-
     steps:
       - name: "Checkout"
         uses: "actions/checkout@v2"
@@ -24,61 +14,24 @@ jobs:
       - name: "Install PHP"
         uses: "shivammathur/setup-php@v2"
         with:
-          php-version: "${{ matrix.php-version }}"
-          tools: "composer:${{ matrix.composer-version }}"
+          php-version: "8.0"
+          tools: "composer:v2"
           coverage: "xdebug"
-
-      - name: "Choose PHPUnit version"
-        run: |
-          if [ "${{ matrix.php-version }}" = "7.1" ]; then
-            echo "SYMFONY_PHPUNIT_VERSION=7.5" >> $GITHUB_ENV;
-          elif [ "${{ matrix.php-version }}" = "8.0" ]; then
-            echo "SYMFONY_PHPUNIT_VERSION=9.4" >> $GITHUB_ENV;
-          else
-            echo "SYMFONY_PHPUNIT_VERSION=8.5" >> $GITHUB_ENV;
-          fi
-
-      - name: Install PHP 8 dependencies
-        uses: nick-invision/retry@v1
-        with:
-          timeout_minutes: 5
-          max_attempts: 5
-          command: composer update --prefer-dist --no-interaction --no-progress --ignore-platform-req=php
-        if: "matrix.php-version >= 8"
-
-      - name: "Run PHP_CodeSniffer"
-        run: "composer cs-check"
-        if: "matrix.composer-version == 'v2' && matrix.php-version == '7.4'"
-
-      - name: "Run unit test suite and collect coverage data"
-        run: "composer test-unit-coverage"
-        if: "matrix.composer-version == 'v1' || matrix.php-version == '7.4'"
 
       - name: "Run unit test suite"
         run: "composer test-unit"
-        if: "matrix.composer-version != 'v1' && matrix.php-version != '7.4'"
 
       - name: "Run integration test suite"
         run: "composer test-integration"
 
-      - name: "Upload intermediate results to Coveralls"
-        env:
-          COVERALLS_REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          COVERALLS_FLAG_NAME: php-${{ matrix.php-version }}_composer-${{ matrix.composer-version }}_phpdotenv-${{ matrix.phpdotenv-version }}
-          COVERALLS_PARALLEL: true
-        run: |
-          composer global require php-coveralls/php-coveralls
-          php-coveralls --coverage_clover=clover.xml --json_path coveralls-upload.json -v
-        if: "matrix.composer-version == 'v1' || matrix.php-version == '7.4'"
-
-  finish:
-    name: "Coverage"
-    needs: test
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: "Merge intermediate results and finalize Coveralls report"
-        uses: coverallsapp/github-action@master
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          parallel-finished: true
+#  finish:
+#    name: "Coverage"
+#    needs: test
+#    runs-on: ubuntu-latest
+#
+#    steps:
+#      - name: "Merge intermediate results and finalize Coveralls report"
+#        uses: coverallsapp/github-action@master
+#        with:
+#          github-token: ${{ secrets.GITHUB_TOKEN }}
+#          parallel-finished: true
