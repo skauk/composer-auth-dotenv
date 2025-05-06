@@ -22,7 +22,7 @@ jobs:
         run: "composer install --prefer-dist --no-progress --no-suggest --no-interaction"
 
       - name: "Run unit test suite"
-        run: "composer test-unit"
+        run: "composer test-unit-coverage"
 
       - name: "Run integration test suite"
         run: "composer test-integration"
