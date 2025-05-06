@@ -27,14 +27,13 @@ jobs:
       - name: "Run integration test suite"
         run: "composer test-integration"
 
-#  finish:
-#    name: "Coverage"
-#    needs: test
-#    runs-on: ubuntu-latest
-#
-#    steps:
-#      - name: "Merge intermediate results and finalize Coveralls report"
-#        uses: coverallsapp/github-action@master
-#        with:
-#          github-token: ${{ secrets.GITHUB_TOKEN }}
-#          parallel-finished: true
+  finish:
+    name: "Coverage"
+    needs: test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: "Merge intermediate results and finalize Coveralls report"
+        uses: coverallsapp/github-action@master
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
