@@ -6,13 +6,16 @@
 [![Coverage Status](https://coveralls.io/repos/github/rcknr/private-composer-installer/badge.svg?branch=main)](https://coveralls.io/repos/github/rcknr/private-composer-installer/badge.svg?branch=main)
 [![Packagist downloads](https://img.shields.io/packagist/dt/rcknr/composer-auth-dotenv.svg?maxAge=3600)](https://packagist.org/packages/rcknr/private-composer-installer)
 
-This is a [Composer](https://getcomposer.org/) plugin offering a way to reference private package URLs within `composer.json` and `composer.lock`. It outsources sensitive dist URL parts (license keys, tokens) into environment variables or a `.env` file typically ignored by version control. This is especially useful when you can't use [Private Packagist](https://packagist.com/) or [Basic HTTP Auth](https://getcomposer.org/doc/articles/authentication-for-private-packages.md#http-basic) because the source of a package is not in your control. This repository is inspired by [acf-pro-installer](https://github.com/PhilippBaschke/acf-pro-installer).
+This [Composer](https://getcomposer.org/) plugin lets you to store credentials for private packages in a `.env` file, using the same format as the `COMPOSER_AUTH` environment variable. This approach avoids using `auth.json`, keeps credentials out of version control, and makes them easier to manage and encrypt alongside other environment-specific configuration. 
+This repository is inspired by [private-composer-installer](https://github.com/ffraenz/private-composer-installer).
 
 ## Motivation
 
-Include private packages in your projects which use `.env` files for configuration. 
-
-[//]: # (- If an environment variable is not available for the given placeholder the plugin trys to read it from the `.env` file in the working directory or in one of the parent directories. The `.env` file gets parsed by [vlucas/phpdotenv]&#40;https://github.com/vlucas/phpdotenv&#41;.)
+In Laravel ecosystem there are many commercially distributed packages that require authentication to be installed.
+The usual way to authenticate is to use the `auth.json` file, which is then ignored (or not) by version control.
+It is more practical, however, to be able to store credentials in a `.env` file, which is already used for other environment-specific configuration.
+The `.env` file can be encrypted and decrypted using the `php artisan env:encrypt` and `php artisan env:decrypt` commands and encryption key distributed to team members as a single unit.
+This _might_ make it easier and safer to manage composer credentials in your development team.
 
 ## Setup
 
@@ -27,7 +30,7 @@ echo -n "COMPOSER_AUTH=" >> .env && cat auth.json | tr -d '\n[:space:]' >> .env
 
 ## Configuration
 
-The configuration options listed below may be added to the `"extra"` section in `composer.json` like so:
+The configuration options listed below may be added to the `extra` section of `composer.json` like so:
 
 ```json
 {
