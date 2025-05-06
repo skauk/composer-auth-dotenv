@@ -18,6 +18,9 @@ jobs:
           tools: "composer:v2"
           coverage: "xdebug"
 
+      - name: "Install dependencies"
+        run: "composer install --prefer-dist --no-progress --no-suggest --no-interaction"
+
       - name: "Run unit test suite"
         run: "composer test-unit"
 
