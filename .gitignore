@@ -4,6 +4,4 @@
 /.phpcs-cache
 /clover.xml
 /composer.lock
-/coveralls-upload.json
-/test/stubs/tmp
 /vendor
