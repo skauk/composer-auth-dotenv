@@ -114,6 +114,8 @@ class PluginTest extends TestCase
 
         $this->assertNull($this->plugin->getComposer());
         $this->assertNull($this->plugin->getIO());
+
+        $this->plugin->deactivate($this->composerMock, $this->ioMock);
     }
 
     public function testDotenvFile()

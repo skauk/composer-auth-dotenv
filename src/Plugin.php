@@ -97,7 +97,6 @@ class Plugin implements PluginInterface
         if ($this->repository->has('COMPOSER_AUTH')) {
             $this->io->write('Loading COMPOSER_AUTH from .env file');
             $data = $this->validateAuth($this->repository->get('COMPOSER_AUTH'));
-//            $io->write('Contents: ' . json_encode($data));
             $this->loadAuth($data);
         }
     }
