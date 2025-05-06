@@ -6,7 +6,7 @@
 [![Coverage Status](https://coveralls.io/repos/github/rcknr/private-composer-installer/badge.svg?branch=main)](https://coveralls.io/repos/github/rcknr/private-composer-installer/badge.svg?branch=main)
 [![Packagist downloads](https://img.shields.io/packagist/dt/rcknr/composer-auth-dotenv.svg?maxAge=3600)](https://packagist.org/packages/rcknr/private-composer-installer)
 
-This [Composer](https://getcomposer.org/) plugin lets you to store credentials for private packages in a `.env` file, using the same format as the `COMPOSER_AUTH` environment variable. This approach avoids using `auth.json`, keeps credentials out of version control, and makes them easier to manage and encrypt alongside other environment-specific configuration. 
+This [Composer](https://getcomposer.org/) plugin lets you store credentials for private packages in a `.env` file, using the same format as the `COMPOSER_AUTH` environment variable. This approach avoids using `auth.json`, keeps credentials out of version control, and makes them easier to manage and encrypt alongside other environment-specific configuration. 
 This repository is inspired by [private-composer-installer](https://github.com/ffraenz/private-composer-installer).
 
 ## Motivation
@@ -14,7 +14,8 @@ This repository is inspired by [private-composer-installer](https://github.com/f
 In Laravel ecosystem there are many commercially distributed packages that require authentication to be installed.
 The usual way to authenticate is to use the `auth.json` file, which is then ignored (or not) by version control.
 It is more practical, however, to be able to store credentials in a `.env` file, which is already used for other environment-specific configuration.
-The `.env` file can be encrypted and decrypted using the `php artisan env:encrypt` and `php artisan env:decrypt` commands and encryption key distributed to team members as a single unit.
+The `.env` file can be encrypted and decrypted using the `php artisan env:encrypt` and `php artisan env:decrypt` commands. 
+The encryption key can be shared with team members to securely grant access to all necessary project secrets.
 This _might_ make it easier and safer to manage composer credentials in your development team.
 
 ## Setup
