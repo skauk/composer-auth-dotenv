@@ -36,4 +36,5 @@ jobs:
       - name: "Merge intermediate results and finalize Coveralls report"
         uses: coverallsapp/github-action@master
         with:
+          format: clover
           github-token: ${{ secrets.GITHUB_TOKEN }}
