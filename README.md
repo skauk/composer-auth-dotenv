@@ -1,10 +1,10 @@
 # composer-auth-dotenv
 
-[![Packagist version](https://img.shields.io/packagist/v/rcknr/composer-auth-dotenv.svg?maxAge=3600)](https://packagist.org/packages/rcknr/composer-auth-dotenv)
+[![Packagist version](https://img.shields.io/packagist/v/skauk/composer-auth-dotenv.svg?maxAge=3600)](https://packagist.org/packages/skauk/composer-auth-dotenv)
 [![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE.md)
-[![Build Status](https://img.shields.io/github/actions/workflow/status/rcknr/composer-auth-dotenv/continuous-integration.yml?branch=main)](https://github.com/rcknr/composer-auth-dotenv/actions)
-[![Coverage Status](https://coveralls.io/repos/github/rcknr/composer-auth-dotenv/badge.svg?branch=main)](https://coveralls.io/repos/github/rcknr/composer-auth-dotenv/badge.svg?branch=main)
-[![Packagist downloads](https://img.shields.io/packagist/dt/rcknr/composer-auth-dotenv.svg?maxAge=3600)](https://packagist.org/packages/rcknr/composer-auth-dotenv)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/skauk/composer-auth-dotenv/continuous-integration.yml?branch=main)](https://github.com/skauk/composer-auth-dotenv/actions)
+[![Coverage Status](https://coveralls.io/repos/github/skauk/composer-auth-dotenv/badge.svg?branch=main)](https://coveralls.io/repos/github/skauk/composer-auth-dotenv/badge.svg?branch=main)
+[![Packagist downloads](https://img.shields.io/packagist/dt/skauk/composer-auth-dotenv.svg?maxAge=3600)](https://packagist.org/packages/skauk/composer-auth-dotenv)
 
 This [Composer](https://getcomposer.org/) plugin lets you store credentials for private packages in a `.env` file, using the same format as the `COMPOSER_AUTH` environment variable. This approach avoids using `auth.json`, keeps credentials out of version control, and makes them easier to manage and encrypt alongside other environment-specific configuration. 
 This repository is inspired by [private-composer-installer](https://github.com/ffraenz/private-composer-installer).
