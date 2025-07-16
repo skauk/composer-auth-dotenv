@@ -1,5 +1,5 @@
 {
-  "name": "rcknr/composer-auth-dotenv",
+  "name": "skauk/composer-auth-dotenv",
   "description": "A composer install helper for private packages",
   "type": "composer-plugin",
   "license": "MIT",
